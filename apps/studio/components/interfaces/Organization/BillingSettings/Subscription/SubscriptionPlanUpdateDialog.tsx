@@ -215,20 +215,18 @@ export const SubscriptionPlanUpdateDialog = ({
         })
       : []
 
-  const proratedCredit = subscriptionPreview?.upfront_charge?.prorated_credit ?? 0
+  const upfrontCharge = subscriptionPreview?.upfront_charge
+
+  const proratedCredit = upfrontCharge?.prorated_credit ?? 0
+  const customerBalance = upfrontCharge?.customer_balance ?? 0
+  const totalCharge = upfrontCharge?.total ?? 0
+  const tax = upfrontCharge?.tax
+  const taxableAmount = upfrontCharge?.taxable_amount
+  const taxStatus = upfrontCharge?.tax_status
+  const hasTax = taxStatus === 'calculated' && (tax?.tax_amount ?? 0) > 0
+  const taxFailed = taxStatus === 'failed'
 
   const newPlanCost = Number(subscriptionPlanMeta?.priceMonthly) || 0
-
-  const customerBalance = subscriptionPreview?.upfront_charge?.customer_balance ?? 0
-
-  const taxStatus = subscriptionPreview?.upfront_charge?.tax_status
-  const hasTax =
-    taxStatus === 'calculated' && (subscriptionPreview?.upfront_charge?.tax?.tax_amount ?? 0) > 0
-  const taxFailed = taxStatus === 'failed'
-  const tax = subscriptionPreview?.upfront_charge?.tax
-  const taxableAmount = subscriptionPreview?.upfront_charge?.taxable_amount
-
-  const totalCharge = subscriptionPreview?.upfront_charge?.total ?? 0
 
   const currentPlanId = subscription?.plan?.id
   const currentPlanName = subscription?.plan?.name
