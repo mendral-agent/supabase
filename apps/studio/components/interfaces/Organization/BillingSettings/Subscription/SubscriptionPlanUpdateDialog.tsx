@@ -370,7 +370,7 @@ export const SubscriptionPlanUpdateDialog = ({
               )}
               {subscriptionPreviewInitialized && (
                 <>
-                  <div className="mt-2 mb-4 text-foreground-light text-sm">
+                  <div className="mt-2 mb-4 text-foreground-light text-sm tabular-nums">
                     {breakdownItems.map((item, i) =>
                       item.type === 'amount' ? (
                         <div
@@ -593,8 +593,7 @@ export const SubscriptionPlanUpdateDialog = ({
 
                                     <TableRow>
                                       <TableCell className="font-medium py-2 px-0">
-                                        Total per month (excluding other usage
-                                        {hasTax || taxFailed ? ' and applicable tax' : ''})
+                                        Total per month (excluding other usage)
                                       </TableCell>
                                       <TableCell
                                         className="text-right font-medium py-2 px-0"
@@ -621,9 +620,6 @@ export const SubscriptionPlanUpdateDialog = ({
                             (prev: number, cur) => prev + cur.total_price,
                             0
                           ) ?? 0
-                        )}
-                        {(hasTax || taxFailed) && (
-                          <span className="text-foreground-lighter"> + applicable tax</span>
                         )}
                       </div>
                     </div>
