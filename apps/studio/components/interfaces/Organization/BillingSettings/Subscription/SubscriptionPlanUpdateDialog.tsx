@@ -368,7 +368,7 @@ export const SubscriptionPlanUpdateDialog = ({
               )}
               {subscriptionPreviewInitialized && (
                 <>
-                  <div className="mt-2 mb-4 text-foreground-light text-sm tabular-nums">
+                  <div className="mt-2 mb-4 text-foreground-light text-sm">
                     {breakdownItems.map((item, i) =>
                       item.type === 'amount' ? (
                         <div
@@ -381,7 +381,7 @@ export const SubscriptionPlanUpdateDialog = ({
                               <InfoTooltip className="max-w-sm">{item.tooltip}</InfoTooltip>
                             )}
                           </div>
-                          <div className="py-2 pr-0 text-right" translate="no">
+                          <div className="py-2 pr-0 text-right tabular-nums" translate="no">
                             {formatCurrency(item.amount)}
                           </div>
                         </div>
@@ -397,7 +397,7 @@ export const SubscriptionPlanUpdateDialog = ({
 
                     <div className="flex items-center justify-between gap-2 border-b border-muted text-foreground">
                       <div className="py-2 pl-0">Charge today</div>
-                      <div className="py-2 pr-0 text-right" translate="no">
+                      <div className="py-2 pr-0 text-right tabular-nums" translate="no">
                         {formatCurrency(totalCharge)}
                         {currentPlanId !== 'free' && (
                           <>
@@ -612,7 +612,7 @@ export const SubscriptionPlanUpdateDialog = ({
                           </div>
                         </InfoTooltip>
                       </div>
-                      <div className="py-2 pr-0 text-right" translate="no">
+                      <div className="py-2 pr-0 text-right tabular-nums" translate="no">
                         {formatCurrency(
                           subscriptionPreview?.breakdown.reduce(
                             (prev: number, cur) => prev + cur.total_price,
