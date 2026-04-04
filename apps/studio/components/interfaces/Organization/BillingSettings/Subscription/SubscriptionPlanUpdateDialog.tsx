@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useMemo, useRef, useState } from 'react'
 import { plans as subscriptionsPlans } from 'shared-data/plans'
 import { toast } from 'sonner'
-import { Button, Dialog, DialogContent, Table, TableBody, TableCell, TableRow } from 'ui'
+import { Button, cn, Dialog, DialogContent, Table, TableBody, TableCell, TableRow } from 'ui'
 import { Admonition } from 'ui-patterns'
 import { InfoTooltip } from 'ui-patterns/info-tooltip'
 import { ShimmeringLoader } from 'ui-patterns/ShimmeringLoader'
@@ -338,18 +338,20 @@ export const SubscriptionPlanUpdateDialog = ({
           <div className="p-8 pb-8 flex flex-col xl:col-span-3">
             <div className="flex-1">
               <div>
-                {!billingViaPartner && subscriptionPreview != null && changeType === 'upgrade' && (
-                  <div className="space-y-2 mb-4">
-                    <PaymentMethodSelection
-                      ref={paymentMethodSelectionRef}
-                      selectedPaymentMethod={selectedPaymentMethod}
-                      onSelectPaymentMethod={(pm) => setSelectedPaymentMethod(pm)}
-                      readOnly={paymentConfirmationLoading || isConfirming || isUpdating}
-                      onAddressChange={onAddressChange}
-                      onTaxIdChange={onTaxIdChange}
-                    />
-                  </div>
-                )}
+                {!billingViaPartner &&
+                  subscriptionPreviewInitialized &&
+                  changeType === 'upgrade' && (
+                    <div className="space-y-2 mb-4">
+                      <PaymentMethodSelection
+                        ref={paymentMethodSelectionRef}
+                        selectedPaymentMethod={selectedPaymentMethod}
+                        onSelectPaymentMethod={(pm) => setSelectedPaymentMethod(pm)}
+                        readOnly={paymentConfirmationLoading || isConfirming || isUpdating}
+                        onAddressChange={onAddressChange}
+                        onTaxIdChange={onTaxIdChange}
+                      />
+                    </div>
+                  )}
 
                 {billingViaPartner && (
                   <div className="mb-4">
@@ -374,16 +376,21 @@ export const SubscriptionPlanUpdateDialog = ({
                 )}
               </div>
 
-              {subscriptionPreviewIsFetching && (
+              {subscriptionPreviewIsLoading && (
                 <div className="space-y-2 mb-4 mt-2">
                   <ShimmeringLoader />
                   <ShimmeringLoader className="w-3/4" />
                   <ShimmeringLoader className="w-1/2" />
                 </div>
               )}
-              {subscriptionPreviewInitialized && !subscriptionPreviewIsFetching && (
+              {subscriptionPreviewInitialized && (
                 <>
-                  <div className="mt-2 mb-4 text-foreground-light text-sm">
+                  <div
+                    className={cn(
+                      'mt-2 mb-4 text-foreground-light text-sm transition-opacity',
+                      subscriptionPreviewIsFetching && 'opacity-50'
+                    )}
+                  >
                     {breakdownItems.map((item, i) =>
                       item.type === 'amount' ? (
                         <div
@@ -606,7 +613,7 @@ export const SubscriptionPlanUpdateDialog = ({
 
                                     <TableRow>
                                       <TableCell className="font-medium py-2 px-0">
-                                        Total per month (excluding other usage and applicable tax)
+                                        Total per month (excluding other usage)
                                       </TableCell>
                                       <TableCell
                                         className="text-right font-medium py-2 px-0"
@@ -633,9 +640,6 @@ export const SubscriptionPlanUpdateDialog = ({
                             (prev: number, cur) => prev + cur.total_price,
                             0
                           ) ?? 0
-                        )}
-                        {subscriptionPreview?.upfront_charge?.tax != null && (
-                          <span className="text-foreground-lighter"> + applicable tax</span>
                         )}
                       </div>
                     </div>
@@ -686,7 +690,7 @@ export const SubscriptionPlanUpdateDialog = ({
               <div className="flex space-x-2">
                 <Button
                   loading={isUpdating || paymentConfirmationLoading || isConfirming}
-                  disabled={subscriptionPreviewIsLoading}
+                  disabled={subscriptionPreviewIsLoading || subscriptionPreviewIsFetching}
                   type="primary"
                   onClick={onUpdateSubscription}
                   className="flex-1"
