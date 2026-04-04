@@ -46,6 +46,7 @@ export interface PaymentMethodSelectionProps {
     postal_code: string
   }) => void
   onTaxIdChange?: (taxId: { country: string; type: string; value: string } | null) => void
+  onUseAsDefaultBillingAddressChange?: (useAsDefault: boolean) => void
 }
 
 const PaymentMethodSelection = forwardRef(function PaymentMethodSelection(
@@ -56,6 +57,7 @@ const PaymentMethodSelection = forwardRef(function PaymentMethodSelection(
     readOnly,
     onAddressChange,
     onTaxIdChange,
+    onUseAsDefaultBillingAddressChange,
   }: PaymentMethodSelectionProps,
   ref
 ) {
@@ -311,7 +313,11 @@ const PaymentMethodSelection = forwardRef(function PaymentMethodSelection(
                 <Checkbox_Shadcn_
                   id="defaultBillingAddress"
                   checked={useAsDefaultBillingAddress}
-                  onCheckedChange={() => setUseAsDefaultBillingAddress(!useAsDefaultBillingAddress)}
+                  onCheckedChange={() => {
+                    const next = !useAsDefaultBillingAddress
+                    setUseAsDefaultBillingAddress(next)
+                    onUseAsDefaultBillingAddressChange?.(next)
+                  }}
                 />
                 <label
                   htmlFor="defaultBillingAddress"

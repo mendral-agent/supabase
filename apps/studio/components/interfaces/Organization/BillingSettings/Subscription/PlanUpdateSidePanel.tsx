@@ -4,7 +4,7 @@ import { StudioPricingSidePanelOpenedEvent } from 'common/telemetry-constants'
 import { isArray } from 'lodash'
 import { Check, ExternalLink } from 'lucide-react'
 import { useRouter } from 'next/router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { plans as subscriptionsPlans } from 'shared-data/plans'
 import { Button, cn, SidePanel } from 'ui'
 import { ShimmeringLoader } from 'ui-patterns/ShimmeringLoader'
@@ -74,6 +74,40 @@ export const PlanUpdateSidePanel = () => {
     type: string
     value: string
   } | null>()
+  const [useAsDefaultBillingAddress, setUseAsDefaultBillingAddress] = useState(true)
+  const latestAddressRef = useRef(billingAddress)
+  const latestTaxIdRef = useRef(billingTaxId)
+
+  const handleAddressChange = useCallback(
+    (address: NonNullable<typeof billingAddress>) => {
+      latestAddressRef.current = address
+      if (useAsDefaultBillingAddress) {
+        setBillingAddress(address)
+      }
+    },
+    [useAsDefaultBillingAddress]
+  )
+
+  const handleTaxIdChange = useCallback(
+    (taxId: { country: string; type: string; value: string } | null) => {
+      latestTaxIdRef.current = taxId
+      if (useAsDefaultBillingAddress) {
+        setBillingTaxId(taxId)
+      }
+    },
+    [useAsDefaultBillingAddress]
+  )
+
+  const handleUseAsDefaultBillingAddressChange = useCallback((useAsDefault: boolean) => {
+    setUseAsDefaultBillingAddress(useAsDefault)
+    if (useAsDefault) {
+      setBillingAddress(latestAddressRef.current)
+      setBillingTaxId(latestTaxIdRef.current)
+    } else {
+      setBillingAddress(undefined)
+      setBillingTaxId(null)
+    }
+  }, [])
 
   const { can: canUpdateSubscription } = useAsyncCheckPermissions(
     PermissionAction.BILLING_WRITE,
@@ -132,6 +166,7 @@ export const PlanUpdateSidePanel = () => {
       setSelectedTier(undefined)
       setBillingAddress(undefined)
       setBillingTaxId(undefined)
+      setUseAsDefaultBillingAddress(true)
       const source = Array.isArray(router.query.source)
         ? router.query.source[0]
         : router.query.source
@@ -367,8 +402,9 @@ export const PlanUpdateSidePanel = () => {
             subscriptionsPlans.find((plan) => plan.id === `tier_${subscription?.plan?.id}`)
               ?.features || [],
         }}
-        onAddressChange={setBillingAddress}
-        onTaxIdChange={setBillingTaxId}
+        onAddressChange={handleAddressChange}
+        onTaxIdChange={handleTaxIdChange}
+        onUseAsDefaultBillingAddressChange={handleUseAsDefaultBillingAddressChange}
       />
 
       <MembersExceedLimitModal
