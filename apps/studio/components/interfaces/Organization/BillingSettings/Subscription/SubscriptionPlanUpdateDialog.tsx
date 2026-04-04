@@ -54,6 +54,10 @@ const DOWNGRADE_PLAN_HEADINGS = {
 
 type DowngradePlanHeadingKey = keyof typeof DOWNGRADE_PLAN_HEADINGS
 
+type BreakdownItem =
+  | { type: 'amount'; label: string; amount: number; tooltip?: string }
+  | { type: 'notice'; label: string }
+
 interface Props {
   selectedTier: 'tier_free' | 'tier_pro' | 'tier_team' | undefined
   onClose: () => void
@@ -224,21 +228,94 @@ export const SubscriptionPlanUpdateDialog = ({
         })
       : []
 
-  const proratedCredit = subscriptionPreview?.upfront_charge?.prorated_credit ?? 0
+  const upfrontCharge = subscriptionPreview?.upfront_charge
 
-  // Calculate new plan cost
-  const newPlanCost = Number(subscriptionPlanMeta?.priceMonthly) ?? 0
+  const proratedCredit = upfrontCharge?.prorated_credit ?? 0
+  const customerBalance = upfrontCharge?.customer_balance ?? 0
+  const totalCharge = upfrontCharge?.total ?? 0
+  const tax = upfrontCharge?.tax
+  const taxableAmount = upfrontCharge?.taxable_amount
+  const taxStatus = upfrontCharge?.tax_status
+  const hasTax = taxStatus === 'calculated' && (tax?.tax_amount ?? 0) > 0
+  const taxFailed = taxStatus === 'failed'
 
-  const customerBalance = Number(subscriptionPreview?.upfront_charge?.customer_balance) ?? 0
+  const newPlanCost = Number(subscriptionPlanMeta?.priceMonthly) || 0
 
-  const taxAmount = subscriptionPreview?.upfront_charge?.tax?.tax_amount ?? 0
+  const currentPlanId = subscription?.plan?.id
+  const currentPlanName = subscription?.plan?.name
 
-  // Calculate total charge (new plan - prorated credit + tax)
-  const totalCharge = subscriptionPreview?.upfront_charge?.total ?? 0
+  // Derives the itemized charge breakdown rows shown above "Charge today".
+  // Example: Pro -> Team upgrade with proration, tax, and credits:
+  //   Team Plan            $25.00
+  //   Unused Time on Pro   -$8.33
+  //   Subtotal             $16.67
+  //   Tax (10%)             $1.67
+  //   Credits              -$5.00
+  //   ─────────────────────────────
+  //   Charge today         $13.34
+  const breakdownItems = useMemo(() => {
+    const items: BreakdownItem[] = []
 
-  // Only show the itemized breakdown when there's more than just the plan cost
-  const hasBreakdownItems =
-    taxAmount > 0 || subscription?.plan?.id !== 'free' || customerBalance > 0
+    if (currentPlanId !== 'free' && proratedCredit > 0) {
+      items.push({
+        type: 'amount',
+        label: `Unused Time on ${currentPlanName} Plan`,
+        amount: -proratedCredit,
+        tooltip:
+          'Your previous plan was charged upfront, so a plan change will prorate any unused time in credits. If the prorated credits exceed the new plan charge, the excessive credits are added to your organization for future use.',
+      })
+    }
+
+    if (hasTax && tax) {
+      if (taxableAmount !== newPlanCost) {
+        items.push({ type: 'amount', label: 'Subtotal', amount: taxableAmount! })
+      }
+      items.push({
+        type: 'amount',
+        label: `Tax (${tax.tax_rate_percentage}%)`,
+        amount: tax.tax_amount,
+      })
+    }
+
+    if (taxFailed) {
+      items.push({
+        type: 'notice',
+        label: 'Tax could not be estimated and may be applied separately',
+      })
+    }
+
+    if (customerBalance > 0) {
+      items.push({
+        type: 'amount',
+        label: 'Credits',
+        amount: -customerBalance,
+        tooltip: 'Credits will be used first before charging your card.',
+      })
+    }
+
+    // Prepend the plan cost row when there are adjustment items to show
+    if (changeType !== 'downgrade' && items.length > 0) {
+      items.unshift({
+        type: 'amount',
+        label: `${subscriptionPlanMeta?.name} Plan`,
+        amount: newPlanCost,
+      })
+    }
+
+    return items
+  }, [
+    currentPlanId,
+    currentPlanName,
+    proratedCredit,
+    hasTax,
+    tax,
+    taxableAmount,
+    newPlanCost,
+    taxFailed,
+    customerBalance,
+    changeType,
+    subscriptionPlanMeta?.name,
+  ])
 
   return (
     <Dialog
@@ -307,80 +384,37 @@ export const SubscriptionPlanUpdateDialog = ({
               {subscriptionPreviewInitialized && !subscriptionPreviewIsFetching && (
                 <>
                   <div className="mt-2 mb-4 text-foreground-light text-sm">
-                    {hasBreakdownItems && changeType !== 'downgrade' && (
-                      <div className="flex items-center justify-between gap-2 border-b border-muted text-xs">
-                        <div className="py-2 pl-0 flex items-center gap-1">
-                          <span>{subscriptionPlanMeta?.name} Plan</span>
-                        </div>
-                        <div className="py-2 pr-0 text-right" translate="no">
-                          {formatCurrency(newPlanCost)}
-                        </div>
-                      </div>
-                    )}
-
-                    {subscription?.plan?.id !== 'free' && proratedCredit > 0 && (
-                      <div className="flex items-center justify-between gap-2 border-b border-muted text-xs">
-                        <div className="py-2 pl-0 flex items-center gap-1">
-                          <span>Unused Time on {subscription?.plan?.name} Plan</span>
-                          <InfoTooltip className="max-w-sm">
-                            Your previous plan was charged upfront, so a plan change will prorate
-                            any unused time in credits. If the prorated credits exceed the new plan
-                            charge, the excessive credits are added to your organization for future
-                            use.
-                          </InfoTooltip>
-                        </div>
-                        <div className="py-2 pr-0 text-right" translate="no">
-                          -{formatCurrency(proratedCredit)}
-                        </div>
-                      </div>
-                    )}
-
-                    {subscriptionPreview?.upfront_charge?.tax != null &&
-                      subscriptionPreview.upfront_charge.tax.tax_amount > 0 && (
-                        <>
-                          {subscriptionPreview.upfront_charge.taxable_amount !== newPlanCost && (
-                            <div className="flex items-center justify-between gap-2 border-b border-muted text-xs">
-                              <div className="py-2 pl-0 flex items-center gap-1">
-                                <span>Subtotal</span>
-                              </div>
-                              <div className="py-2 pr-0 text-right" translate="no">
-                                {formatCurrency(subscriptionPreview.upfront_charge.taxable_amount)}
-                              </div>
-                            </div>
-                          )}
-                          <div className="flex items-center justify-between gap-2 border-b border-muted text-xs">
-                            <div className="py-2 pl-0 flex items-center gap-1">
-                              <span>
-                                Tax ({subscriptionPreview.upfront_charge.tax.tax_rate_percentage}%)
-                              </span>
-                            </div>
-                            <div className="py-2 pr-0 text-right" translate="no">
-                              {formatCurrency(subscriptionPreview.upfront_charge.tax.tax_amount)}
-                            </div>
+                    {breakdownItems.map((item, i) =>
+                      item.type === 'amount' ? (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between gap-2 border-b border-muted text-xs"
+                        >
+                          <div className="py-2 pl-0 flex items-center gap-1">
+                            <span>{item.label}</span>
+                            {item.tooltip && (
+                              <InfoTooltip className="max-w-sm">{item.tooltip}</InfoTooltip>
+                            )}
                           </div>
-                        </>
-                      )}
-
-                    {/* Ignore rare case with negative balance (debt) */}
-                    {customerBalance > 0 && (
-                      <div className="flex items-center justify-between gap-2 border-b border-muted text-xs">
-                        <div className="py-2 pl-0 flex items-center gap-1">
-                          <span>Credits</span>
-                          <InfoTooltip>
-                            Credits will be used first before charging your card.
-                          </InfoTooltip>
+                          <div className="py-2 pr-0 text-right tabular-nums" translate="no">
+                            {formatCurrency(item.amount)}
+                          </div>
                         </div>
-                        <div className="py-2 pr-0 text-right" translate="no">
-                          -{formatCurrency(customerBalance)}
+                      ) : (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between gap-2 border-b border-muted text-xs"
+                        >
+                          <div className="py-2 pl-0 text-foreground-lighter">{item.label}</div>
                         </div>
-                      </div>
+                      )
                     )}
 
                     <div className="flex items-center justify-between gap-2 border-b border-muted text-foreground">
                       <div className="py-2 pl-0">Charge today</div>
-                      <div className="py-2 pr-0 text-right" translate="no">
+                      <div className="py-2 pr-0 text-right tabular-nums" translate="no">
                         {formatCurrency(totalCharge)}
-                        {subscription?.plan?.id !== 'free' && (
+                        {currentPlanId !== 'free' && (
                           <>
                             {' '}
                             <Link
@@ -579,11 +613,9 @@ export const SubscriptionPlanUpdateDialog = ({
                                         translate="no"
                                       >
                                         {formatCurrency(
-                                          Math.round(
-                                            subscriptionPreview?.breakdown?.reduce(
-                                              (prev, cur) => prev + cur.total_price,
-                                              0
-                                            ) ?? 0
+                                          subscriptionPreview?.breakdown?.reduce(
+                                            (prev, cur) => prev + cur.total_price,
+                                            0
                                           ) ?? 0
                                         )}
                                       </TableCell>
@@ -595,14 +627,12 @@ export const SubscriptionPlanUpdateDialog = ({
                           </div>
                         </InfoTooltip>
                       </div>
-                      <div className="py-2 pr-0 text-right" translate="no">
+                      <div className="py-2 pr-0 text-right tabular-nums" translate="no">
                         {formatCurrency(
-                          Math.round(
-                            subscriptionPreview?.breakdown.reduce(
-                              (prev: number, cur) => prev + cur.total_price,
-                              0
-                            ) ?? 0
-                          )
+                          subscriptionPreview?.breakdown.reduce(
+                            (prev: number, cur) => prev + cur.total_price,
+                            0
+                          ) ?? 0
                         )}
                         {subscriptionPreview?.upfront_charge?.tax != null && (
                           <span className="text-foreground-lighter"> + applicable tax</span>
